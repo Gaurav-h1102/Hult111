@@ -34,9 +34,10 @@ const TutorCourseManager = ({ onClose }) => {
   const fetchCourses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://hult-ten.vercel.app/api/tutor/courses', {
+      const response = await fetch('https://hult.onrender.com/api/tutor/courses', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
       const data = await response.json();
       setCourses(data.courses || []);
     } catch (error) {
