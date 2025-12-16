@@ -36,7 +36,7 @@ db = SQLAlchemy()
 app = Flask(__name__)
 
 # At the top of your file, replace CORS(app) with:
-CORS(app, supports_credentials=True)
+
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///educonnect.db'
@@ -508,7 +508,7 @@ def register_alt():
         return '', 200
     return register()
 
-@app.route('/api/auth/register', methods=['POST'])
+@app.route('/api/auth/register', methods=['POST', 'OPTIONS'])
 def register():
     try:
         data = request.json
