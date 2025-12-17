@@ -35,13 +35,7 @@ from ml_matcher import TutorMatchingSystem
 db = SQLAlchemy()
 app = Flask(__name__)
 
-# At the top of your file, replace CORS(app) with:
-CORS(app, 
-     origins="*",
-     supports_credentials=False,
-     allow_headers=["Content-Type", "Authorization", "Accept"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-     expose_headers=["Content-Type", "Authorization"])
+
 
 print("✅ CORS configured for:", [
     "https://hult-ten.vercel.app",
@@ -65,6 +59,22 @@ os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'materials'), exist_ok=Tru
 db.init_app(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app) 
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    return response
+
+@app.before_request
+def handle_preflight():
+    if request.method == 'OPTIONS':
+        response = make_response('', 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
 
 def token_required(f):
     @wraps(f)
