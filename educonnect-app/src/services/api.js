@@ -10,7 +10,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // IMPORTANT: Include credentials for CORS
+  withCredentials: false, // IMPORTANT: Include credentials for CORS
 });
 
 // Attach JWT token to all requests
