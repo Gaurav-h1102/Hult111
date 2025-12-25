@@ -3556,5 +3556,5 @@ if __name__ == '__main__':
         allow_unsafe_werkzeug=True
     )
    
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
