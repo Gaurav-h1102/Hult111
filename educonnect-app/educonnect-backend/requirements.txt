@@ -44,3 +44,7 @@ python-dotenv==1.0.0
 simple-websocket>=1.0.0 
 psycopg2-binary==2.9.10
 gunicorn==21.2.0
+
+
+
+eventlet==0.33.3

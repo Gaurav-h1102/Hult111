@@ -3878,6 +3878,259 @@ def debug_tutor_status():
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+    
+
+
+
+
+
+
+
+    
+# ============================================================================
+# ASSIGNMENT ENDPOINTS
+# ============================================================================
+
+class Assignment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    due_date = db.Column(db.DateTime, nullable=False)
+    max_score = db.Column(db.Float, default=100.0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class AssignmentSubmission(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('assignment.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    score = db.Column(db.Float)
+    feedback = db.Column(db.Text)
+    grade = db.Column(db.String(5))
+    status = db.Column(db.String(20), default='submitted')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+@app.route('/api/student/assignments', methods=['GET'])
+@jwt_required()
+def get_student_assignments():
+    """Get all assignments for a student"""
+    try:
+        user_id_str = get_jwt_identity()
+        user_id = int(user_id_str)
+        user = User.query.get(user_id)
+        
+        if not user or user.user_type != 'student':
+            return jsonify({'error': 'Only students can view assignments'}), 403
+        
+        # Get student's enrolled courses
+        enrollments = Enrollment.query.filter_by(student_id=user_id).all()
+        course_ids = [enrollment.course_id for enrollment in enrollments]
+        
+        # Get assignments for these courses
+        assignments = Assignment.query.filter(Assignment.course_id.in_(course_ids)).all()
+        
+        assignments_list = []
+        for assignment in assignments:
+            submission = AssignmentSubmission.query.filter_by(
+                assignment_id=assignment.id,
+                student_id=user_id
+            ).first()
+            
+            course = Course.query.get(assignment.course_id)
+            
+            assignments_list.append({
+                'id': assignment.id,
+                'title': assignment.title,
+                'course': course.title if course else 'Unknown Course',
+                'courseCode': course.level if course else 'N/A',
+                'dueDate': assignment.due_date.isoformat() if assignment.due_date else None,
+                'maxScore': assignment.max_score,
+                'submittedDate': submission.submitted_at.isoformat() if submission else None,
+                'score': submission.score if submission else None,
+                'grade': submission.grade if submission else None,
+                'feedback': submission.feedback if submission else None,
+                'status': submission.status if submission else 'pending',
+                'createdAt': assignment.created_at.isoformat()
+            })
+        
+        return jsonify({
+            'assignments': assignments_list,
+            'total': len(assignments_list)
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ [ASSIGNMENTS ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to get assignments'}), 500
+
+@app.route('/api/assignments/<int:assignment_id>/submit', methods=['POST'])
+@jwt_required()
+def submit_assignment(assignment_id):
+    """Submit an assignment"""
+    try:
+        user_id_str = get_jwt_identity()
+        user_id = int(user_id_str)
+        user = User.query.get(user_id)
+        
+        if not user or user.user_type != 'student':
+            return jsonify({'error': 'Only students can submit assignments'}), 403
+        
+        assignment = Assignment.query.get(assignment_id)
+        if not assignment:
+            return jsonify({'error': 'Assignment not found'}), 404
+        
+        # Check if already submitted
+        existing = AssignmentSubmission.query.filter_by(
+            assignment_id=assignment_id,
+            student_id=user_id
+        ).first()
+        
+        if existing:
+            return jsonify({'error': 'Assignment already submitted'}), 400
+        
+        # Check if due date has passed
+        if assignment.due_date and datetime.utcnow() > assignment.due_date:
+            status = 'late'
+        else:
+            status = 'submitted'
+        
+        # Create submission
+        submission = AssignmentSubmission(
+            assignment_id=assignment_id,
+            student_id=user_id,
+            status=status
+        )
+        
+        db.session.add(submission)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Assignment submitted successfully',
+            'submission_id': submission.id,
+            'status': status,
+            'submitted_at': submission.submitted_at.isoformat()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ [SUBMIT ASSIGNMENT ERROR] {str(e)}")
+        return jsonify({'error': 'Failed to submit assignment'}), 500
+
+
+
+
+
+
+
+
+
+
+
+# ============================================================================
+# PROGRESS ENDPOINTS
+# ============================================================================
+
+@app.route('/api/student/progress', methods=['GET'])
+@jwt_required()
+def get_student_progress():
+    """Get student progress data"""
+    try:
+        user_id_str = get_jwt_identity()
+        user_id = int(user_id_str)
+        user = User.query.get(user_id)
+        
+        if not user or user.user_type != 'student':
+            return jsonify({'error': 'Only students can view progress'}), 403
+        
+        # Get all enrollments
+        enrollments = Enrollment.query.filter_by(student_id=user_id).all()
+        
+        courses_data = []
+        total_progress = 0
+        grade_stats = {
+            'highGrade': 0,   # A (90-100)
+            'mediumGrade': 0, # B (80-89)
+            'lowGrade': 0,    # C/D (60-79)
+            'failing': 0      # F (<60)
+        }
+        
+        for enrollment in enrollments:
+            course = Course.query.get(enrollment.course_id)
+            
+            # Calculate grade category
+            if enrollment.progress >= 90:
+                grade_stats['highGrade'] += 1
+                status = 'excellent'
+            elif enrollment.progress >= 80:
+                grade_stats['mediumGrade'] += 1
+                status = 'good'
+            elif enrollment.progress >= 60:
+                grade_stats['lowGrade'] += 1
+                status = 'needs_practice'
+            else:
+                grade_stats['failing'] += 1
+                status = 'at_risk'
+            
+            courses_data.append({
+                'id': course.id,
+                'name': course.title,
+                'progress': enrollment.progress,
+                'grade': enrollment.progress,  # Using progress as grade for now
+                'targetGrade': 85,  # Default target
+                'status': status,
+                'assignments': '0/0'  # You can add actual assignment count
+            })
+            
+            total_progress += enrollment.progress
+        
+        # Calculate overall progress
+        overall_progress = 0
+        if len(enrollments) > 0:
+            overall_progress = total_progress / len(enrollments)
+        
+        return jsonify({
+            'overallProgress': round(overall_progress, 1),
+            'courses': courses_data,
+            'statistics': grade_stats
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ [PROGRESS ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to get progress data'}), 500
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
