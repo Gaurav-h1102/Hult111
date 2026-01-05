@@ -91,11 +91,9 @@ const AssignmentsScreen = ({
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/student/assignments`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await fetch(`${API_URL}/api/student/assignments`
+        
+      );
       
       if (response.ok) {
         const data = await response.json();
@@ -165,9 +163,7 @@ const AssignmentsScreen = ({
 
       const response = await fetch(`${API_URL}/api/assignments/${selectedAssignment.id}/submit`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+
         body: formData
       });
 
