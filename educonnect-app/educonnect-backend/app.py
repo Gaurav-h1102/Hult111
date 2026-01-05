@@ -311,82 +311,9 @@ class Booking(db.Model):
     notes = db.Column(db.String(500))
 
 
-def generate_verification_token(email):
-    """Generate email verification token"""
-    return serializer.dumps(email, salt=app.config['SECURITY_PASSWORD_SALT'])
 
-def verify_token(token, expiration=3600):
-    """Verify token (default 1 hour expiration)"""
-    try:
-        email = serializer.loads(
-            token,
-            salt=app.config['SECURITY_PASSWORD_SALT'],
-            max_age=expiration
-        )
-        return email
-    except SignatureExpired:
-        return None  # Token expired
-    except BadSignature:
-        return None  # Invalid token
 
-def send_verification_email(user_email, verification_url):
-    """Send email verification email"""
-    try:
-        sender = app.config.get('MAIL_DEFAULT_SENDER')
-        if not sender:
-            print("❌ CONFIG ERROR: MAIL_DEFAULT_SENDER is None")
-            return False
 
-        msg = EmailMessage(
-            subject="Verify your EduConnect account",
-            to=[user_email],
-            from_email=sender
-        )
-        
-        # Set HTML content
-        msg.content_subtype = "html"
-        msg.body = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-                    <h1 style="color: white; margin: 0;">Welcome to EduConnect!</h1>
-                </div>
-                
-                <div style="padding: 30px; background: #f7fafc;">
-                    <h2 style="color: #2d3748;">Verify Your Email Address</h2>
-                    <p style="color: #4a5568; line-height: 1.6;">
-                        Thank you for registering with EduConnect. Please verify your email address by clicking the button below.
-                    </p>
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{verification_url}" 
-                           style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                  color: white; padding: 15px 40px; text-decoration: none; 
-                                  border-radius: 8px; display: inline-block; font-weight: bold;">
-                            Verify Email Address
-                        </a>
-                    </div>
-                    <p style="color: #718096; font-size: 14px;">
-                        This link will expire in 1 hour. If you didn't create an account, please ignore this email.
-                    </p>
-                    <p style="color: #718096; font-size: 12px; margin-top: 20px;">
-                        Or copy and paste this link into your browser:<br>
-                        <a href="{verification_url}" style="color: #667eea;">{verification_url}</a>
-                    </p>
-                </div>
-            </body>
-        </html>
-        """
-        
-        # Send the email
-        msg.send()
-        print(f"✅ [EMAIL] Verification email sent to {user_email}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ [EMAIL ERROR] Failed to send verification email: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
 
 
 def send_password_reset_email(user_email, reset_url):
@@ -881,20 +808,7 @@ def register_with_verification():
         
         db.session.commit()
         
-        print(f"✅ [REGISTER] User {new_user.id} registered successfully")
-        
-        # Try to send verification email (but don't fail if it doesn't work)
-        email_sent = False
-        try:
-            token = generate_verification_token(new_user.email)
-            verification_url = f"{request.host_url}verify-email?token={token}"
-            email_sent = send_verification_email(new_user.email, verification_url)
-            print(f"[REGISTER] Email sent: {email_sent}")
-        except Exception as email_error:
-            print(f"⚠️ [REGISTER] Email sending failed (non-critical): {email_error}")
-            # Don't fail registration if email fails
-        
-        print(f"{'='*70}\n")
+       
         
         return jsonify({
             'message': 'Registration successful! You can now log in.',
@@ -910,82 +824,9 @@ def register_with_verification():
         print(traceback.format_exc())
         print(f"{'='*70}\n")
         return jsonify({'error': 'Registration failed', 'details': str(e)})
-"""
- @app.route('/api/auth/verify-email', methods=['GET'])
-def verify_email():
-    """Verify email address"""
-    try:
-        token = request.args.get('token')
-        
-        if not token:
-            return jsonify({'error': 'Verification token is required'}), 400
-        
-        # Verify token (1 hour expiration)
-        email = verify_token(token, expiration=3600)
-        
-        if not email:
-            return jsonify({'error': 'Invalid or expired verification link'}), 400
-        
-        # Find user
-        user = User.query.filter_by(email=email).first()
-        
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        if user.email_verified:
-            return jsonify({'message': 'Email already verified'}), 200
-        
-        # Mark as verified
-        user.email_verified = True
-        db.session.commit()
-        
-        print(f"✅ [VERIFY] Email verified for user {user.id}")
-        
-        return jsonify({
-            'message': 'Email verified successfully! You can now log in.',
-            'email': user.email
-        }), 200
-        
-    except Exception as e:
-        print(f"[VERIFY ERROR] {str(e)}")
-        return jsonify({'error': 'Verification failed'}), 500
 
+ 
 
-@app.route('/api/auth/resend-verification', methods=['POST'])
-def resend_verification():
-    """Resend verification email"""
-    try:
-        data = request.json
-        email = data.get('email')
-        
-        if not email:
-            return jsonify({'error': 'Email is required'}), 400
-        
-        user = User.query.filter_by(email=email).first()
-        
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        if user.email_verified:
-            return jsonify({'message': 'Email already verified'}), 200
-        
-        # Generate new token
-        token = generate_verification_token(user.email)
-        verification_url = f"{request.host_url}verify-email?token={token}"
-        
-        # Send email
-        email_sent = send_verification_email(user.email, verification_url)
-        
-        if email_sent:
-            return jsonify({'message': 'Verification email sent successfully'}), 200
-        else:
-            return jsonify({'error': 'Failed to send email'}), 500
-            
-    except Exception as e:
-        print(f"[RESEND ERROR] {str(e)}")
-        return jsonify({'error': 'Failed to resend verification'}), 500
-
-"""
 
 # Add this new endpoint around line 1500 (after other message endpoints)
 
