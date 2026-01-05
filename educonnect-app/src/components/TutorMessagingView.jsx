@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, User, Send, ArrowLeft, CheckCheck, Clock, Search } from 'lucide-react';
+import { MessageSquare, User, Send, ArrowLeft, CheckCheck, Clock, Search, Paperclip, Mic, X, FileText, Image as ImageIcon, Check } from 'lucide-react';
 import io from 'socket.io-client';
-import { Paperclip, Mic, X, FileText, Image as ImageIcon } from 'lucide-react';
+
 const API_URL = process.env.REACT_APP_API_URL || 'https://hult.onrender.com';
 
 const TutorMessagingView = ({ 
@@ -27,96 +27,82 @@ const TutorMessagingView = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-const [attachmentFile, setAttachmentFile] = useState(null);
-const [isRecording, setIsRecording] = useState(false);
-const [mediaRecorder, setMediaRecorder] = useState(null);
-const [audioChunks, setAudioChunks] = useState([]);
-const fileInputRef = useRef(null);
+  const [attachmentFile, setAttachmentFile] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [audioChunks, setAudioChunks] = useState([]);
+  const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Initialize Socket.IO
-  useEffect(() => {
-    console.log('🔌 [TUTOR] Connecting to Socket.IO server...');
-    
-    socketRef.current = io(API_URL, {
-      auth: { userId: currentTutorUserId },
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5
-    });
-
-    const handleFileSelect = (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File too large. Maximum size is 10MB');
-      return;
-    }
-    setAttachmentFile(file);
-  }
-};
-
-const removeAttachment = () => {
-  setAttachmentFile(null);
-  if (fileInputRef.current) fileInputRef.current.value = '';
-};
-
-const startRecording = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    const chunks = [];
-
-    recorder.ondataavailable = (e) => chunks.push(e.data);
-    recorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File too large. Maximum size is 10MB');
+        return;
+      }
       setAttachmentFile(file);
-      stream.getTracks().forEach(track => track.stop());
-    };
+    }
+  };
 
-    recorder.start();
-    setMediaRecorder(recorder);
-    setIsRecording(true);
-    setAudioChunks(chunks);
-  } catch (err) {
-    console.error('Microphone access denied:', err);
-    alert('Please allow microphone access to record voice messages');
-  }
-};
+  const removeAttachment = () => {
+    setAttachmentFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
-const stopRecording = () => {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-    setIsRecording(false);
-    setMediaRecorder(null);
-  }
-};
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks = [];
 
-const uploadAttachment = async (file, conversationId) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('conversation_id', conversationId);
-  
-  const token = localStorage.getItem('token');
-  
-  const response = await fetch(`${API_URL}/api/messages/upload`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` },
-    body: formData
-  });
-  
-  if (!response.ok) throw new Error('Upload failed');
-  
-  const data = await response.json();
-  return data.file_url;
-};
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+        setAttachmentFile(file);
+        stream.getTracks().forEach(track => track.stop());
+      };
 
-// Replace the existing sendMessage function with this updated version:
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setAudioChunks(chunks);
+    } catch (err) {
+      console.error('Microphone access denied:', err);
+      alert('Please allow microphone access to record voice messages');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+    }
+  };
+
+  const uploadAttachment = async (file, conversationId) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('conversation_id', conversationId);
+    
+    const token = localStorage.getItem('token');
+    
+    const response = await fetch(`${API_URL}/api/messages/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+    
+    if (!response.ok) throw new Error('Upload failed');
+    
+    const data = await response.json();
+    return data.file_url;
+  };
+
+ // Replace the sendMessage function in TutorMessagingView.jsx (around line 150)
+
+// Replace the sendMessage function in TutorMessagingView.jsx (around line 150)
 
 const sendMessage = async () => {
   if ((!newMessage.trim() && !attachmentFile) || !selectedConversation) return;
@@ -133,21 +119,49 @@ const sendMessage = async () => {
   let fileType = null;
   let fileName = null;
 
-  // Upload attachment if present
+  // Handle file upload FIRST if there's a file
   if (attachmentFile) {
     try {
-      fileUrl = await uploadAttachment(attachmentFile, selectedConversation.id);
+      console.log('📤 Uploading file...', attachmentFile.name);
+      
+      const conversationKey = selectedConversation.id;
+      
+      const formData = new FormData();
+      formData.append('file', attachmentFile);
+      formData.append('conversation_id', conversationKey);
+      
+      const token = localStorage.getItem('token');
+      
+      const uploadResponse = await fetch(`${API_URL}/api/messages/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      const uploadData = await uploadResponse.json();
+      fileUrl = uploadData.file_url;
+      
+      if (!fileUrl || fileUrl.startsWith('blob:')) {
+        throw new Error('Upload returned invalid URL');
+      }
+      
       fileType = attachmentFile.type.startsWith('image/') ? 'image' : 
                  attachmentFile.type.startsWith('audio/') ? 'voice' : 'file';
       fileName = attachmentFile.name;
-      console.log('[TUTOR] Attachment uploaded:', fileUrl);
+      
+      console.log('✅ File uploaded successfully:', fileUrl);
     } catch (err) {
-      console.error('[TUTOR] Upload failed:', err);
-      alert('Failed to upload attachment');
+      console.error('❌ Upload failed:', err);
+      alert('Failed to upload attachment. Please try again.');
       return;
     }
   }
 
+  // Create message object
   const msg = {
     id: tempId,
     sender_id: currentTutorUserId,
@@ -167,7 +181,31 @@ const sendMessage = async () => {
   if (fileInputRef.current) fileInputRef.current.value = '';
 
   try {
+    // Send via Socket.IO which will save to database
     if (socketRef.current && socketRef.current.connected) {
+      // Create a promise to wait for message delivery confirmation
+      const messageDeliveryPromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Message delivery timeout'));
+        }, 10000); // 10 second timeout
+
+        // Listen for delivery confirmation
+        socketRef.current.once('message_delivered', (data) => {
+          clearTimeout(timeout);
+          if (data.messageId === tempId) {
+            resolve(data.dbMessageId);
+          }
+        });
+      });
+
+      console.log('📤 About to emit to socket:', {
+  fileUrl: fileUrl,
+  fileType: fileType,
+  fileName: fileName,
+  text: msg.text
+});
+
+      // Emit the message
       socketRef.current.emit('send_message', {
         conversationId: selectedConversation.id,
         sender_id: currentTutorUserId,
@@ -181,9 +219,32 @@ const sendMessage = async () => {
       });
       
       console.log(`[TUTOR] Sent message to student ${studentId}`);
-      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'sent' } : m));
+
+      // Wait for delivery confirmation
+      try {
+        const dbMessageId = await messageDeliveryPromise;
+        console.log(`✅ [TUTOR] Message saved to database with ID: ${dbMessageId}`);
+        
+        // Update message status to 'sent' with database ID
+        setMessages(prev => prev.map(m => 
+          m.id === tempId ? { ...m, id: dbMessageId, status: 'sent' } : m
+        ));
+      } catch (err) {
+        console.warn('⚠️ [TUTOR] Message delivery timeout, but message may have been sent');
+        // Mark as sent anyway since socket is connected
+        setMessages(prev => prev.map(m => 
+          m.id === tempId ? { ...m, status: 'sent' } : m
+        ));
+      }
+    } else {
+      console.error('❌ [TUTOR] Socket not connected!');
+      setMessages(prev => prev.map(m => 
+        m.id === tempId ? { ...m, status: 'failed' } : m
+      ));
+      return;
     }
 
+    // Save to storage as backup
     const studentName = selectedConversation.studentName || selectedConversation.partnerName || 'Student';
     
     const conversationData = {
@@ -203,6 +264,7 @@ const sendMessage = async () => {
       localStorage.setItem(selectedConversation.id, JSON.stringify(conversationData));
     }
 
+    // Update conversations list
     setConversations(prevConvs =>
       prevConvs.map(conv =>
         conv.id === selectedConversation.id
@@ -212,10 +274,64 @@ const sendMessage = async () => {
     );
 
   } catch (err) {
-    console.error('Failed to send message:', err);
-    setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' } : m));
+    console.error('[TUTOR] Failed to send message:', err);
+    setMessages(prev => prev.map(m => 
+      m.id === tempId ? { ...m, status: 'failed' } : m
+    ));
   }
 };
+
+  const handleTyping = () => {
+    if (socketRef.current && selectedConversation) {
+      socketRef.current.emit('typing', {
+        conversationId: selectedConversation.id,
+        userId: currentTutorUserId
+      });
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        socketRef.current.emit('stop_typing', {
+          conversationId: selectedConversation.id,
+          userId: currentTutorUserId
+        });
+      }, 2000);
+    }
+  };
+
+  const getMessageStatus = (msg) => {
+    if (!msg.isOwn) return null;
+    
+    switch (msg.status) {
+      case 'sending':
+        return <Clock size={14} className="text-gray-400" />;
+      case 'sent':
+        return <Check size={14} className="text-gray-400" />;
+      case 'delivered':
+        return <CheckCheck size={14} className="text-blue-400" />;
+      case 'failed':
+        return <span className="text-red-400 text-xs">Failed</span>;
+      default:
+        return <CheckCheck size={14} className="text-gray-400" />;
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Initialize Socket.IO
+  useEffect(() => {
+    console.log('🔌 [TUTOR] Connecting to Socket.IO server...');
+    
+    socketRef.current = io(API_URL, {
+      auth: { userId: currentTutorUserId },
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
+    });
 
     const socket = socketRef.current;
 
@@ -234,7 +350,6 @@ const sendMessage = async () => {
       console.log('📩 [TUTOR] Sender:', data.sender_id, 'Receiver:', data.receiver_id);
       console.log('📩 [TUTOR] Current tutor ID:', currentTutorUserId);
       
-      // Update messages if this conversation is open
       if (selectedConversation) {
         const studentId = selectedConversation.studentId || selectedConversation.partnerId;
         const isRelevant = data.sender_id === studentId || 
@@ -245,7 +360,6 @@ const sendMessage = async () => {
         
         if (isRelevant) {
           setMessages(prev => {
-            // 🔥 Check for duplicate by ID
             if (prev.some(m => m.id === data.id)) {
               console.log('📩 [TUTOR] ⚠️ Duplicate message detected, skipping');
               return prev;
@@ -261,7 +375,6 @@ const sendMessage = async () => {
         console.log('📩 [TUTOR] No conversation selected, updating conversation list only');
       }
 
-      // Always update conversation list (but avoid duplicates)
       setConversations(prev => prev.map(conv => {
         const convStudentId = conv.studentId || conv.partnerId;
         if (convStudentId === data.sender_id || conv.id === data.conversationId) {
@@ -310,7 +423,7 @@ const sendMessage = async () => {
         socket.disconnect();
       }
     };
-  }, [currentTutorUserId]); // 🔥 REMOVED selectedConversation from dependencies
+  }, [currentTutorUserId, selectedConversation]);
 
   // Load conversations
   useEffect(() => {
@@ -434,7 +547,6 @@ const sendMessage = async () => {
     setSelectedConversation(conversation);
     setLoading(true);
 
-    // 🔥 FIX: Get studentId from either field
     const studentId = conversation.studentId || conversation.partnerId;
     
     if (!studentId) {
@@ -443,24 +555,21 @@ const sendMessage = async () => {
       return;
     }
 
-    // 🔥 FIX: Join socket room with partnerId
     if (socketRef.current) {
       socketRef.current.emit('join_conversation', {
         conversationId: conversation.id,
         userId: currentTutorUserId,
-        partnerId: studentId  // ✅ Use the extracted studentId
+        partnerId: studentId
       });
       
       console.log(`[TUTOR] Joined conversation ${conversation.id} with student ${studentId}`);
     }
 
-    // Mark as read
     setConversations(prev => prev.map(conv =>
       conv.id === conversation.id ? { ...conv, unreadCount: 0 } : conv
     ));
 
     try {
-      // Try to load from database first
       if (typeof conversation.id === 'number') {
         console.log('[TUTOR] Loading messages from database...');
         const messagesRes = await fetch(`${API_URL}/api/conversations/${conversation.id}/messages`);
@@ -472,13 +581,15 @@ const sendMessage = async () => {
             isOwn: String(m.sender_id) === String(currentTutorUserId)
           }));
           console.log('[TUTOR] Loaded messages from database:', processedMessages.length);
+          if (processedMessages.length > 0) {
+            console.log('[TUTOR] Last message data:', processedMessages[processedMessages.length - 1]);
+          }
           setMessages(processedMessages);
           setLoading(false);
           return;
         }
       }
 
-      // Fallback to storage
       console.log('[TUTOR] Loading messages from storage...');
       if (window.storage && window.storage.get) {
         try {
@@ -518,107 +629,6 @@ const sendMessage = async () => {
     }
   };
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
-
-    // 🔥 Get studentId from conversation object
-    const studentId = selectedConversation.studentId || selectedConversation.partnerId;
-    
-    if (!studentId) {
-      console.error('[TUTOR] ERROR: Cannot send message - no student ID!');
-      return;
-    }
-
-    const tempId = Date.now();
-    const msg = {
-      id: tempId,
-      sender_id: currentTutorUserId,
-      text: newMessage.trim(),
-      timestamp: new Date().toISOString(),
-      isOwn: true,
-      status: 'sending'
-    };
-
-    const updatedMessages = [...messages, msg];
-    setMessages(updatedMessages);
-    setNewMessage('');
-
-    try {
-      // Emit via Socket.IO
-      if (socketRef.current && socketRef.current.connected) {
-        socketRef.current.emit('send_message', {
-          conversationId: selectedConversation.id,
-          sender_id: currentTutorUserId,
-          receiver_id: studentId,  // ✅ Use extracted studentId
-          text: msg.text,
-          timestamp: msg.timestamp,
-          messageId: tempId
-        });
-        
-        console.log(`[TUTOR] Sent message to student ${studentId}`);
-
-        setMessages(prev => prev.map(m => 
-          m.id === tempId ? { ...m, status: 'sent' } : m
-        ));
-      }
-
-      // Update storage as backup
-      const studentName = selectedConversation.studentName || selectedConversation.partnerName || 'Student';
-      
-      const conversationData = {
-        tutorUserId: currentTutorUserId,
-        tutorProfileId: tutorProfileId,
-        studentId: studentId,  // ✅ Use extracted studentId
-        studentName: studentName,
-        tutorName: tutorName,
-        lastMessage: msg.text,
-        lastMessageTime: msg.timestamp,
-        messages: updatedMessages
-      };
-
-      if (window.storage && window.storage.set) {
-        await window.storage.set(selectedConversation.id, JSON.stringify(conversationData));
-      } else {
-        localStorage.setItem(selectedConversation.id, JSON.stringify(conversationData));
-      }
-
-      // Update conversation list
-      setConversations(prevConvs =>
-        prevConvs.map(conv =>
-          conv.id === selectedConversation.id
-            ? { ...conv, lastMessage: msg.text, lastMessageTime: msg.timestamp }
-            : conv
-        ).sort((a, b) => new Date(b.lastMessageTime || 0) - new Date(a.lastMessageTime || 0))
-      );
-
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      setMessages(prev => prev.map(m => 
-        m.id === tempId ? { ...m, status: 'failed' } : m
-      ));
-    }
-  };
-
-  const handleTyping = () => {
-    if (socketRef.current && selectedConversation) {
-      socketRef.current.emit('typing', {
-        conversationId: selectedConversation.id,
-        userId: currentTutorUserId
-      });
-
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-
-      typingTimeoutRef.current = setTimeout(() => {
-        socketRef.current.emit('stop_typing', {
-          conversationId: selectedConversation.id,
-          userId: currentTutorUserId
-        });
-      }, 2000);
-    }
-  };
-
   const formatTime = (timestamp) => {
     if (!timestamp) return 'Unknown';
     
@@ -642,7 +652,6 @@ const sendMessage = async () => {
   );
 
   const showingChat = selectedConversation !== null;
-  const totalUnread = conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -657,35 +666,13 @@ const sendMessage = async () => {
          '🔴 Connection error'}
       </div>
 
-      {showingChat && (
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSelectedConversation(null)}
-              className="p-2 hover:bg-white/20 rounded-lg transition"
-            >
-              <ArrowLeft size={24} />
-            </button>
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center relative">
-              <User size={20} />
-              {onlineUsers.has(selectedConversation?.studentId || selectedConversation?.partnerId) && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
-              )}
-            </div>
-            <div>
-              <h2 className="font-semibold">{selectedConversation?.studentName || selectedConversation?.partnerName || 'Student'}</h2>
-              <p className="text-xs text-blue-100">
-                {onlineUsers.has(selectedConversation?.studentId || selectedConversation?.partnerId) ? '● Online' : 'Offline'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {!showingChat && (
         <div className="p-4">
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+          <h1 className="text-2xl font-bold mb-4 text-gray-800">Messages</h1>
+          
+          {/* Search Bar */}
+          <div className="mb-4 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
               placeholder="Search conversations..."
@@ -695,226 +682,257 @@ const sendMessage = async () => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-white rounded-lg shadow p-3 border-l-4 border-blue-500">
-              <p className="text-2xl font-bold text-gray-800">{conversations.length}</p>
-              <p className="text-sm text-gray-600">Total Chats</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-3 border-l-4 border-green-500">
-              <p className="text-2xl font-bold text-gray-800">{totalUnread}</p>
-              <p className="text-sm text-gray-600">Unread</p>
-            </div>
-          </div>
-
-          {filteredConversations.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-8 text-center">
-              <MessageSquare size={48} className="mx-auto mb-3 text-gray-300" />
-              <p className="text-gray-500 font-medium">
-                {searchQuery ? 'No conversations found' : 'No conversations yet'}
-              </p>
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="mt-2 text-blue-600 hover:underline text-sm"
+          {/* Conversations List */}
+          <div className="bg-white rounded-lg shadow">
+            {filteredConversations.length === 0 ? (
+              <div className="p-8 text-center">
+                <MessageSquare size={48} className="mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-500">No conversations yet</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Students will appear here when they message you
+                </p>
+              </div>
+            ) : (
+              filteredConversations.map(conv => (
+                <div 
+                  key={conv.id}
+                  onClick={() => openConversation(conv)}
+                  className="flex items-center gap-3 p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition"
                 >
-                  Clear search
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredConversations.map((conv) => {
-                const studentId = conv.studentId || conv.partnerId;
-                const studentName = conv.studentName || conv.partnerName || 'Student';
-                
-                return (
-                  <div
-                    key={conv.id}
-                    onClick={() => openConversation(conv)}
-                    className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-all border-l-4 border-blue-500 hover:border-purple-500"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white flex-shrink-0 relative">
-                        <User size={24} />
-                        {onlineUsers.has(studentId) && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-1">
-                          <h3 className="font-semibold text-gray-800 truncate">{studentName}</h3>
-                          {(conv.unreadCount || 0) > 0 && (
-                            <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-2">
-                              {conv.unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 truncate mb-1">{conv.lastMessage || 'No messages'}</p>
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                          <Clock size={12} />
-                          {formatTime(conv.lastMessageTime)}
-                        </div>
-                      </div>
-                    </div>
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center relative">
+                    <User size={24} className="text-blue-600" />
+                    {onlineUsers.has(conv.studentId || conv.partnerId) && (
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-semibold text-gray-800 truncate">
+                        {conv.studentName || conv.partnerName || 'Student'}
+                      </h3>
+                      <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                        {formatTime(conv.lastMessageTime)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 truncate">{conv.lastMessage}</p>
+                  </div>
+                  {conv.unreadCount > 0 && (
+                    <div className="bg-blue-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
+                      {conv.unreadCount}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
       {showingChat && (
-        <div className="flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
-          <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Loading messages...</p>
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <MessageSquare size={48} className="mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-500">No messages yet</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col space-y-3 max-w-4xl mx-auto">
-{messages.map((msg) => (
-  <div key={msg.id} className={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'}`}>
-    <div className={`max-w-xs px-4 py-2 rounded-2xl shadow-sm ${
-      msg.isOwn
-        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-sm'
-        : 'bg-white text-gray-800 rounded-bl-sm border border-gray-200'
-    }`}>
-      {/* File attachment */}
-      {msg.file_url && (
-        <div className="mb-2">
-          {msg.file_type === 'image' ? (
-            <img src={msg.file_url} alt="attachment" className="rounded max-w-full h-auto" />
-          ) : msg.file_type === 'voice' ? (
-            <audio controls className="w-full">
-              <source src={msg.file_url} type="audio/webm" />
-            </audio>
-          ) : (
-            <a href={msg.file_url} target="_blank" rel="noopener noreferrer" 
-               className={`flex items-center gap-2 ${msg.isOwn ? 'text-blue-100' : 'text-blue-600'}`}>
-              <FileText size={16} />
-              <span className="text-sm underline">{msg.file_name || 'Download file'}</span>
-            </a>
-          )}
-        </div>
-      )}
-      
-      <p className="break-words">{msg.text}</p>
-      <div className={`flex items-center justify-between gap-2 mt-1 text-xs ${msg.isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
-        <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-        {msg.isOwn && msg.status === 'delivered' && <CheckCheck size={14} />}
-      </div>
-    </div>
-  </div>
-))}
-
-// Replace the input area at the bottom (find the div with "Type your message..." and replace with):
-
-<div className="bg-white border-t border-gray-200 p-3">
-  {/* Attachment preview */}
-  {attachmentFile && (
-    <div className="mb-2 flex items-center gap-2 bg-gray-100 p-2 rounded">
-      {attachmentFile.type.startsWith('image/') ? <ImageIcon size={16} /> : <FileText size={16} />}
-      <span className="text-sm flex-1 truncate">{attachmentFile.name}</span>
-      <button onClick={removeAttachment} className="text-red-600 hover:text-red-800">
-        <X size={16} />
-      </button>
-    </div>
-  )}
-  
-  <div className="flex gap-2 max-w-4xl mx-auto items-center">
-    {/* File attachment button */}
-    <input
-      ref={fileInputRef}
-      type="file"
-      onChange={handleFileSelect}
-      accept="image/*,.pdf,.doc,.docx,.txt"
-      className="hidden"
-    />
-    <button
-      onClick={() => fileInputRef.current?.click()}
-      className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition"
-    >
-      <Paperclip size={20} />
-    </button>
-    
-    {/* Voice recording button */}
-    <button
-      onClick={isRecording ? stopRecording : startRecording}
-      className={`p-2 rounded-full transition ${
-        isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-gray-600 hover:bg-gray-100'
-      }`}
-    >
-      <Mic size={20} />
-    </button>
-    
-    <input
-      type="text"
-      placeholder={isRecording ? 'Recording...' : 'Type your message...'}
-      className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      value={newMessage}
-      onChange={(e) => {
-        setNewMessage(e.target.value);
-        handleTyping();
-      }}
-      onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-      disabled={isRecording}
-    />
-    <button
-      onClick={sendMessage}
-      disabled={(!newMessage.trim() && !attachmentFile) || connectionStatus !== 'connected'}
-      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-    >
-      <Send size={18} />
-    </button>
-  </div>
-</div>
-                {isTyping && (
-                  <div className="flex justify-start">
-                    <div className="bg-gray-200 px-4 py-2 rounded-2xl rounded-bl-sm">
-                      <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white border-t border-gray-200 p-3">
-            <div className="flex gap-2 max-w-4xl mx-auto">
-              <input
-                type="text"
-                placeholder="Type your message..."
-                className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={newMessage}
-                onChange={(e) => {
-                  setNewMessage(e.target.value);
-                  handleTyping();
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              />
+        <>
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg">
+            <div className="flex items-center gap-3">
               <button
-                onClick={sendMessage}
-                disabled={!newMessage.trim() || connectionStatus !== 'connected'}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                onClick={() => setSelectedConversation(null)}
+                className="p-2 hover:bg-white/20 rounded-lg transition"
               >
-                <Send size={18} />
+                <ArrowLeft size={24} />
+              </button>
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center relative">
+                <User size={20} />
+                {onlineUsers.has(selectedConversation?.studentId || selectedConversation?.partnerId) && (
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
+                )}
+              </div>
+              <div className="flex-1">
+                <h2 className="font-semibold">{selectedConversation?.studentName || selectedConversation?.partnerName || 'Student'}</h2>
+                <p className="text-xs text-blue-100">
+                  {onlineUsers.has(selectedConversation?.studentId || selectedConversation?.partnerId) ? '● Online' : 'Offline'}
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  console.log('=== ALL MESSAGES DEBUG ===');
+                  messages.forEach((msg, i) => {
+                    console.log(`Message ${i}:`, {
+                      id: msg.id,
+                      text: msg.text,
+                      file_url: msg.file_url,
+                      file_type: msg.file_type,
+                      file_name: msg.file_name,
+                      timestamp: msg.timestamp
+                    });
+                  });
+                }}
+                className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
+              >
+                Debug
               </button>
             </div>
           </div>
-        </div>
+
+          <div className="flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500">Loading messages...</p>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <MessageSquare size={48} className="mx-auto mb-3 text-gray-300" />
+                    <p className="text-gray-500">No messages yet</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col space-y-3 max-w-4xl mx-auto">
+                  {messages.map((msg) => {
+                    // Debug log
+                    console.log('Rendering message:', {
+                      id: msg.id,
+                      text: msg.text,
+                      file_url: msg.file_url,
+                      file_type: msg.file_type,
+                      file_name: msg.file_name
+                    });
+                    
+                    return (
+                      <div key={msg.id} className={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-xs px-4 py-2 rounded-2xl shadow-sm ${
+                          msg.isOwn 
+                            ? 'bg-blue-600 text-white rounded-br-sm' 
+                            : 'bg-white text-gray-800 rounded-bl-sm border border-gray-200'
+                        }`}>
+                          {/* File Display */}
+                          {msg.file_url && (
+                            <div className="mb-2">
+                              {msg.file_type === 'image' ? (
+                                <img 
+                                  src={msg.file_url} 
+                                  alt="attachment" 
+                                  className="rounded max-w-full h-auto max-h-64 cursor-pointer"
+                                  onClick={() => window.open(msg.file_url, '_blank')}
+                                />
+                              ) : msg.file_type === 'voice' ? (
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Mic size={16} className={msg.isOwn ? 'text-blue-100' : 'text-blue-600'} />
+                                    <span className="text-sm">Voice message</span>
+                                  </div>
+                                  <audio controls className="w-full" style={{ maxWidth: '250px' }}>
+                                    <source src={msg.file_url} type="audio/webm" />
+                                    <source src={msg.file_url} type="audio/mp4" />
+                                    Your browser does not support the audio element.
+                                  </audio>
+                                </div>
+                              ) : (
+                                <a 
+                                  href={msg.file_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className={`flex items-center gap-2 ${msg.isOwn ? 'text-blue-100 hover:text-white' : 'text-blue-600 hover:text-blue-800'}`}
+                                >
+                                  <FileText size={16} />
+                                  <span className="text-sm underline">{msg.file_name || 'Download file'}</span>
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Text Content - show actual message text */}
+                          {msg.text && !msg.text.startsWith('🎤') && !msg.text.startsWith('📎') && !msg.text.startsWith('📤') ? (
+                            <p className="break-words">{msg.text}</p>
+                          ) : !msg.file_url && msg.text ? (
+                            <p className="break-words">{msg.text}</p>
+                          ) : null}
+                          
+                          {/* Timestamp */}
+                          <div className={`flex items-center justify-between gap-2 mt-1 ${msg.isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
+                            <span className="text-xs">
+                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {getMessageStatus(msg)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {isTyping && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-200 px-4 py-2 rounded-2xl rounded-bl-sm">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white border-t border-gray-200 p-3">
+              {attachmentFile && (
+                <div className="mb-2 flex items-center gap-2 bg-gray-100 p-2 rounded">
+                  {attachmentFile.type.startsWith('image/') ? <ImageIcon size={16} /> : <FileText size={16} />}
+                  <span className="text-sm flex-1 truncate">{attachmentFile.name}</span>
+                  <button onClick={removeAttachment} className="flex-shrink-0 text-red-600 hover:text-red-800">
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+              
+              <div className="flex gap-2 max-w-4xl mx-auto items-center">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileSelect}
+                  accept="image/*,.pdf,.doc,.docx,.txt"
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-shrink-0 p-2 text-gray-600 hover:bg-gray-100 rounded-full transition"
+                >
+                  <Paperclip size={20} />
+                </button>
+                
+                <button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  className={`flex-shrink-0 p-2 rounded-full transition ${
+                    isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Mic size={20} />
+                </button>
+                
+                <input
+                  type="text"
+                  placeholder={isRecording ? 'Recording...' : 'Type your message...'}
+                  className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={newMessage}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    handleTyping();
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                  disabled={isRecording}
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={(!newMessage.trim() && !attachmentFile) || connectionStatus !== 'connected'}
+                  className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-6 py-2 rounded-full hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 sm:gap-2 min-w-[44px]"
+                >
+                  <Send size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
