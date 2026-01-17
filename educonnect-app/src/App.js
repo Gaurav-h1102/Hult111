@@ -1274,6 +1274,10 @@ const HomeView = () => {
        
       </div>
 
+          <div className="mt-4">
+      <FCMDebugPanel />
+    </div>
+
       <div className="grid grid-cols-2 gap-3">
         {userType === 'student' ? (
           <>

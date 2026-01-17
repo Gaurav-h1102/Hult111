@@ -847,7 +847,58 @@ def test_call_notification(receiver_id):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+@app.route('/api/notifications/test', methods=['POST'])
+@jwt_required()
+def send_test_notification():
+    """Send test notification to current user"""
+    try:
+        user_id_str = get_jwt_identity()
+        user_id = int(user_id_str)
+        
+        data = request.get_json() or {}
+        
+        # Get target user (default to self)
+        target_user_id = data.get('userId', user_id)
+        
+        print(f"\n{'='*70}")
+        print(f"[TEST NOTIF] Sending test notification to user {target_user_id}")
+        print(f"{'='*70}")
+        
+        # Send FCM notification
+        success = send_fcm_notification(
+            user_id=target_user_id,
+            title=data.get('title', '🔔 Test Notification'),
+            body=data.get('body', 'This is a test notification from EduConnect!'),
+            data={
+                'type': data.get('type', 'test'),
+                'url': '/',
+                'timestamp': datetime.utcnow().isoformat()
+            },
+            notification_type='test'
+        )
+        
+        if success:
+            print(f"✅ [TEST NOTIF] Notification sent successfully")
+            return jsonify({
+                'success': True,
+                'message': 'Test notification sent successfully',
+                'user_id': target_user_id
+            }), 200
+        else:
+            print(f"❌ [TEST NOTIF] Failed to send notification")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to send notification. User may not have notifications enabled.'
+            }), 500
+            
+    except Exception as e:
+        print(f"❌ [TEST NOTIF] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 def send_password_reset_email(user_email, reset_url):
     """Send password reset email"""

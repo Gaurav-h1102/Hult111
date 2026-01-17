@@ -1,41 +1,12 @@
+// src/components/EnhancedAuthModals.js - WITH FCM INTEGRATION
 import React, { useState } from 'react';
 import { Mail, Lock, User, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { initializeFCM, unregisterFCMToken } from '../firebaseConfig';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://hult.onrender.com';
 
 // ============================================================================
-// EMAIL VERIFICATION BANNER
-// ============================================================================
-const EmailVerificationBanner = ({ email, onResend }) => {
-  const [sending, setSending] = useState(false);
-  
-  const handleResend = async () => {
-    setSending(true);
-    await onResend();
-    setSending(false);
-  };
-  
-  return (
-    <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-white p-3 z-50">
-      <div className="max-w-md mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <AlertCircle size={20} />
-          <span className="text-sm font-medium">Please verify your email</span>
-        </div>
-        <button
-          onClick={handleResend}
-          disabled={sending}
-          className="text-sm underline hover:no-underline disabled:opacity-50"
-        >
-          {sending ? 'Sending...' : 'Resend'}
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// ============================================================================
-// ENHANCED REGISTER MODAL
+// ENHANCED REGISTER MODAL WITH FCM
 // ============================================================================
 export const EnhancedRegisterModal = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -79,7 +50,7 @@ export const EnhancedRegisterModal = ({ onClose, onSuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) return;
@@ -133,6 +104,12 @@ export const EnhancedRegisterModal = ({ onClose, onSuccess }) => {
                 localStorage.setItem('profileComplete', 'false');
               }
               
+              // 🔔 Initialize FCM after login
+              console.log('🔔 Initializing FCM after registration...');
+              await initializeFCM((payload) => {
+                console.log('📨 Notification received:', payload);
+              });
+              
               // Call onSuccess
               if (onSuccess) {
                 onSuccess({
@@ -143,7 +120,6 @@ export const EnhancedRegisterModal = ({ onClose, onSuccess }) => {
             }
           } catch (error) {
             console.error('Auto-login failed:', error);
-            // Still close modal even if auto-login fails
             if (onClose) onClose();
           }
         }, 2000);
@@ -164,12 +140,12 @@ export const EnhancedRegisterModal = ({ onClose, onSuccess }) => {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="text-green-600" size={32} />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Check Your Email!</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome to EduConnect!</h2>
           <p className="text-gray-600 mb-4">
-            We've sent a verification link to <strong>{formData.email}</strong>
+            Your account has been created successfully.
           </p>
           <p className="text-sm text-gray-500">
-            Please check your inbox and click the verification link to activate your account.
+            Redirecting to dashboard...
           </p>
         </div>
       </div>
@@ -298,7 +274,7 @@ export const EnhancedRegisterModal = ({ onClose, onSuccess }) => {
 };
 
 // ============================================================================
-// ENHANCED LOGIN MODAL
+// ENHANCED LOGIN MODAL WITH FCM
 // ============================================================================
 export const EnhancedLoginModal = ({ onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
@@ -306,14 +282,8 @@ export const EnhancedLoginModal = ({ onClose, onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
-
-  if (showForgotPassword) {
-    return <ForgotPasswordModal onBack={() => setShowForgotPassword(false)} />;
-  }
-
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -342,6 +312,20 @@ export const EnhancedLoginModal = ({ onClose, onSuccess }) => {
           }
           localStorage.setItem('profileComplete', data.user.profile_complete ? 'true' : 'false');
         }
+
+        // 🔔 Initialize FCM after login
+        console.log('🔔 Initializing FCM after login...');
+        await initializeFCM((payload) => {
+          console.log('📨 Notification received:', payload);
+          
+          // Handle different notification types
+          if (payload.data?.type === 'call') {
+            console.log('📞 Incoming call notification');
+            // You can trigger a custom event here or update state
+          } else if (payload.data?.type === 'message') {
+            console.log('💬 New message notification');
+          }
+        });
         
         // Call onSuccess with proper data structure
         if (onSuccess) {
@@ -403,14 +387,6 @@ export const EnhancedLoginModal = ({ onClose, onSuccess }) => {
             </div>
           </div>
 
-          /**<button
-            type="button"
-            onClick={() => setShowForgotPassword(true)}
-            className="text-sm text-blue-600 hover:underline"
-          >
-            Forgot password?
-          </button>
-          *\
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-red-700 text-sm">{error}</p>
@@ -440,117 +416,39 @@ export const EnhancedLoginModal = ({ onClose, onSuccess }) => {
 };
 
 // ============================================================================
-// FORGOT PASSWORD MODAL
+// LOGOUT FUNCTION WITH FCM CLEANUP
 // ============================================================================
-export const ForgotPasswordModal = ({ onBack }) => {
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-
-      if (response.ok) {
-        setSent(true);
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to send reset email');
-      }
-    } catch (error) {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (sent) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Mail className="text-blue-600" size={32} />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Check Your Email</h2>
-          <p className="text-gray-600 mb-4">
-            If an account exists with {email}, you will receive password reset instructions.
-          </p>
-          <button
-            onClick={onBack}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Back to Login
-          </button>
-        </div>
-      </div>
-    );
+export async function handleLogout() {
+  try {
+    console.log('🔔 Unregistering FCM token on logout...');
+    
+    // Unregister FCM token
+    await unregisterFCMToken();
+    
+    // Clear localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userType');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('tutorProfileId');
+    localStorage.removeItem('profileComplete');
+    localStorage.removeItem('fcm_token');
+    
+    console.log('✅ Logout complete');
+    
+    // Redirect to home or login page
+    window.location.href = '/';
+    
+  } catch (error) {
+    console.error('❌ Error during logout:', error);
+    // Still redirect even if FCM cleanup fails
+    window.location.href = '/';
   }
+}
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-2">Forgot Password?</h2>
-        <p className="text-gray-600 text-sm mb-4">
-          Enter your email and we'll send you a reset link
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg"
-                placeholder="john@example.com"
-                required
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-            >
-              {loading ? 'Sending...' : 'Send Reset Link'}
-            </button>
-            <button
-              type="button"
-              onClick={onBack}
-              className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
-            >
-              Back
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Export all components
 export default {
   EnhancedRegisterModal,
   EnhancedLoginModal,
-  ForgotPasswordModal,
-  EmailVerificationBanner
+  handleLogout
 };
