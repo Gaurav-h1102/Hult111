@@ -47,7 +47,16 @@ import urllib.parse
 import requests
 import firebase_admin
 from firebase_admin import credentials, messaging as fcm_messaging
+
+# Add this after your other imports
 import json
+try:
+    import firebase_admin
+    from firebase_admin import credentials, messaging as fcm_messaging
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    print("⚠️ firebase-admin not installed. Run: pip install firebase-admin")
+    FIREBASE_AVAILABLE = False
 
 def initialize_firebase():
     """
@@ -62,8 +71,10 @@ def initialize_firebase():
        - Add: FIREBASE_CREDENTIALS
        - Paste the entire JSON as the value
     """
+    
     try:
         firebase_creds = os.getenv('FIREBASE_CREDENTIALS')
+        
         
         if not firebase_creds:
             print("❌ FIREBASE_CREDENTIALS not found in environment variables")
@@ -87,6 +98,18 @@ def initialize_firebase():
         import traceback
         traceback.print_exc()
         return False
+    
+    FIREBASE_ENABLED = False  # Default to False
+
+    print("\n" + "="*70)
+    print("Initializing Firebase Admin SDK...")
+    print("="*70)
+    try:
+        FIREBASE_ENABLED = initialize_firebase()
+    except Exception as e:
+        print(f"❌ Failed to initialize Firebase: {e}")
+        FIREBASE_ENABLED = False
+    print("="*70 + "\n")
 
 cloudinary.config(
     cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
@@ -384,7 +407,9 @@ class Booking(db.Model):
 def send_fcm_notification(user_id, title, body, data=None, notification_type='general'):
     """
     Send FCM notification to a specific user (PRODUCTION VERSION)
+
     """
+    global FIREBASE_ENABLED
     if not FIREBASE_ENABLED:
         print("⚠️ Firebase not enabled, skipping notification")
         return False
