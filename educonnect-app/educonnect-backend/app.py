@@ -77,7 +77,6 @@ def initialize_firebase():
     try:
         firebase_creds = os.getenv('FIREBASE_CREDENTIALS')
         
-        
         if not firebase_creds:
             print("❌ FIREBASE_CREDENTIALS not found in environment variables")
             print("⚠️  Push notifications will NOT work!")
@@ -89,7 +88,7 @@ def initialize_firebase():
         
         firebase_admin.initialize_app(cred)
         print("✅ Firebase Admin initialized successfully (PRODUCTION)")
-        return True
+        return True  # ✅ RETURN True on success
         
     except json.JSONDecodeError as e:
         print(f"❌ Invalid JSON in FIREBASE_CREDENTIALS: {e}")
@@ -100,19 +99,32 @@ def initialize_firebase():
         import traceback
         traceback.print_exc()
         return False
-    
-    FIREBASE_ENABLED = False  # Default to False
 
+def init_firebase_global():
+    """Initialize Firebase and set global variable"""
+    global FIREBASE_ENABLED  # ✅ Explicitly declare we're modifying the global
+    
     print("\n" + "="*70)
     print("Initializing Firebase Admin SDK...")
     print("="*70)
+    
     try:
         FIREBASE_ENABLED = initialize_firebase()
+        
+        if FIREBASE_ENABLED:
+            print("✅ FIREBASE_ENABLED set to True")
+        else:
+            print("⚠️ FIREBASE_ENABLED set to False")
+            
     except Exception as e:
         print(f"❌ Failed to initialize Firebase: {e}")
         FIREBASE_ENABLED = False
+    
+    print(f"📊 Final FIREBASE_ENABLED status: {FIREBASE_ENABLED}")
     print("="*70 + "\n")
 
+# Call the initialization function
+init_firebase_global()
 cloudinary.config(
     cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
     api_key=os.getenv('CLOUDINARY_API_KEY'),
