@@ -1,212 +1,315 @@
 // public/firebase-messaging-sw.js
-// This handles FCM notifications when your PWA is in the background
+// COMPLETE FIXED VERSION with Professional Styling
 
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
-// Initialize Firebase in service worker
+// ⚠️ REPLACE WITH YOUR FIREBASE CONFIG
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCyRnk60Muh93DtWVbrmO3jn8WsVKZDSas",
+  authDomain: "educonnect-821e7.firebaseapp.com",
+  projectId: "educonnect-821e7",
+  storageBucket: "educonnect-821e7.firebasestorage.app",
+  messagingSenderId: "1004307512502",
+  appId: "1:1004307512502:web:ff5eaae9f3a01eb5ff3a17",
+
 });
 
 const messaging = firebase.messaging();
 
 // ============================================================================
-// BACKGROUND MESSAGE HANDLER
+// BACKGROUND MESSAGE HANDLER - CREATES PROFESSIONAL NOTIFICATIONS
 // ============================================================================
 
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message:', payload);
+  console.log('[SW] 📨 Background message received:', payload);
   
-  const notificationTitle = payload.notification?.title || 'EduConnect';
+  const notificationTitle = payload.notification?.title || '🔔 EduConnect';
+  const notificationBody = payload.notification?.body || '';
+  const data = payload.data || {};
+  
+  // ✅ PROFESSIONAL NOTIFICATION OPTIONS
   const notificationOptions = {
-    body: payload.notification?.body || '',
+    body: notificationBody,
     icon: payload.notification?.icon || '/logo192.png',
-    badge: payload.notification?.badge || '/logo192.png',
-    tag: payload.data?.type || 'general',
-    requireInteraction: payload.data?.type === 'call',
-    vibrate: payload.data?.type === 'call' ? [200, 100, 200, 100, 200] : [100, 50, 100],
-    data: payload.data,
+    badge: '/logo192.png',
     
-    // ✅ ACTION BUTTONS - Different for each notification type
-    actions: getActionsForType(payload.data?.type, payload.data)
+    // ✅ VISUAL ENHANCEMENTS
+    image: payload.notification?.image || null, // Large image (optional)
+    
+    // ✅ BEHAVIOR
+    tag: data.type || 'general',
+    renotify: true,
+    requireInteraction: data.type === 'call',
+    silent: false,
+    
+    // ✅ VIBRATION PATTERN
+    vibrate: data.type === 'call' 
+      ? [200, 100, 200, 100, 200]  // Urgent pattern for calls
+      : [100, 50, 100],              // Gentle pattern for messages
+    
+    // ✅ TIMESTAMP
+    timestamp: Date.now(),
+    
+    // ✅ DIRECTION (for RTL languages)
+    dir: 'ltr',
+    
+    // ✅ LANGUAGE
+    lang: 'en',
+    
+    // ✅ CUSTOM DATA - CRITICAL FOR CLICK HANDLING
+    data: {
+      url: data.url || data.click_action || '/',
+      meeting_id: data.meeting_id || data.meetingId || '',
+      conversation_id: data.conversation_id || data.conversationId || '',
+      type: data.type || 'general',
+      timestamp: data.timestamp || new Date().toISOString()
+    },
+    
+    // ✅ ACTION BUTTONS (different for each type)
+    actions: getActionsForType(data.type, data)
   };
 
+  console.log('[SW] 📱 Showing notification with options:', notificationOptions);
+  
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
 
 // ============================================================================
-// HELPER: GET ACTIONS BASED ON NOTIFICATION TYPE
+// HELPER: GET ACTION BUTTONS BASED ON TYPE
 // ============================================================================
 
 function getActionsForType(type, data) {
+  console.log('[SW] 🎯 Getting actions for type:', type);
+  
   switch (type) {
     case 'call':
       return [
-        { action: 'answer', title: '✅ Answer', icon: '/icons/answer.png' },
-        { action: 'decline', title: '❌ Decline', icon: '/icons/decline.png' }
+        { 
+          action: 'answer', 
+          title: '✅ Answer Call',
+          icon: '/icons/answer.png'  // Optional
+        },
+        { 
+          action: 'decline', 
+          title: '❌ Decline',
+          icon: '/icons/decline.png'  // Optional
+        }
       ];
       
     case 'message':
       return [
-        { action: 'view', title: '👁️ View', icon: '/icons/view.png' },
-        { action: 'reply', title: '📝 Reply', icon: '/icons/reply.png' }
+        { 
+          action: 'open', 
+          title: '👁️ View Message',
+          icon: '/icons/view.png'  // Optional
+        }
       ];
       
     case 'test':
       return [
-        { action: 'open', title: '🚀 Open App', icon: '/icons/open.png' }
+        { 
+          action: 'open', 
+          title: '🚀 Open App',
+          icon: '/icons/open.png'  // Optional
+        }
       ];
       
     default:
       return [
-        { action: 'open', title: '📱 Open', icon: '/icons/open.png' }
+        { 
+          action: 'open', 
+          title: '📱 Open',
+          icon: '/icons/open.png'  // Optional
+        }
       ];
   }
 }
 
 
 // ============================================================================
-// NOTIFICATION CLICK HANDLER - HANDLES ACTIONS
+// NOTIFICATION CLICK HANDLER - HANDLES ALL CLICKS AND ACTIONS
 // ============================================================================
 
 self.addEventListener('notificationclick', (event) => {
-  console.log('[Service Worker] Notification click received:', event);
+  console.log('[SW] 🖱️ Notification clicked!');
+  console.log('[SW] Action:', event.action);
+  console.log('[SW] Data:', event.notification.data);
   
   event.notification.close();
   
   const data = event.notification.data || {};
   const action = event.action;
   
-  console.log('[Service Worker] Action clicked:', action);
-  console.log('[Service Worker] Notification data:', data);
-  
-  // ✅ DETERMINE WHERE TO REDIRECT
   let urlToOpen = '/';
   
-  // Handle different actions
-  switch (action) {
-    case 'answer':
-      // ✅ ANSWER CALL - Redirect to video call with meeting ID
+  // ✅ DETERMINE URL BASED ON ACTION
+  if (action === 'answer') {
+    // ✅ ANSWER CALL - GO TO VIDEO CALL
+    console.log('[SW] 📞 Answer clicked!');
+    const meetingId = data.meeting_id || data.meetingId;
+    
+    if (meetingId) {
+      urlToOpen = `/video-call?meetingId=${meetingId}`;
+      console.log('[SW] 🎥 Opening video call:', urlToOpen);
+    } else {
+      console.error('[SW] ❌ No meeting ID found!');
+      urlToOpen = '/video-call';
+    }
+    
+  } else if (action === 'decline') {
+    // ✅ DECLINE CALL - JUST CLOSE
+    console.log('[SW] ❌ Call declined');
+    
+    // Optional: Send decline notification to backend
+    const meetingId = data.meeting_id || data.meetingId;
+    if (meetingId) {
+      fetch('https://your-backend.onrender.com/api/video/decline-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meetingId })
+      }).catch(err => console.error('[SW] Failed to send decline:', err));
+    }
+    
+    return; // Don't open any window
+    
+  } else if (action === 'open' || action === 'view') {
+    // ✅ OPEN MESSAGE OR APP
+    console.log('[SW] 📱 Open clicked!');
+    
+    if (data.type === 'call') {
+      // If "Open" on call notification
       const meetingId = data.meeting_id || data.meetingId;
-      if (meetingId) {
-        urlToOpen = `/video-call?meetingId=${meetingId}`;
-      }
-      console.log('[Service Worker] Opening video call:', urlToOpen);
-      break;
-      
-    case 'decline':
-      // ✅ DECLINE CALL - Just close notification, optionally send decline signal
-      console.log('[Service Worker] Call declined');
-      // Optional: Send API request to notify caller
-      // fetch('/api/video/decline-call', { method: 'POST', body: JSON.stringify({ meetingId: data.meeting_id }) });
-      return; // Don't open any window
-      
-    case 'view':
-    case 'reply':
-      // ✅ VIEW/REPLY MESSAGE - Open messages
+      urlToOpen = meetingId ? `/video-call?meetingId=${meetingId}` : '/video-call';
+    } else if (data.type === 'message') {
+      // If "Open" on message notification
       const conversationId = data.conversation_id || data.conversationId;
-      if (conversationId) {
-        urlToOpen = `/messages/${conversationId}`;
-      } else {
-        urlToOpen = '/messages';
-      }
-      console.log('[Service Worker] Opening messages:', urlToOpen);
-      break;
-      
-    case 'open':
-    default:
-      // ✅ DEFAULT - Use the URL from notification data or click_action
+      urlToOpen = conversationId ? `/messages/${conversationId}` : '/messages';
+    } else {
+      // General notification
       urlToOpen = data.url || data.click_action || '/';
-      console.log('[Service Worker] Opening default URL:', urlToOpen);
-      break;
+    }
+    
+  } else {
+    // ✅ DEFAULT CLICK (clicked on notification body, not button)
+    console.log('[SW] 📲 Notification body clicked');
+    
+    if (data.type === 'call') {
+      const meetingId = data.meeting_id || data.meetingId;
+      urlToOpen = meetingId ? `/video-call?meetingId=${meetingId}` : '/video-call';
+    } else if (data.type === 'message') {
+      const conversationId = data.conversation_id || data.conversationId;
+      urlToOpen = conversationId ? `/messages/${conversationId}` : '/messages';
+    } else {
+      urlToOpen = data.url || data.click_action || '/';
+    }
   }
   
-  // ✅ OPEN URL IN PWA
+  console.log('[SW] 🌐 Final URL to open:', urlToOpen);
+  
+  // ✅ OPEN THE URL IN PWA
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        // Check if PWA is already open
-        for (let i = 0; i < clientList.length; i++) {
-          const client = clientList[i];
-          
-          // If PWA is already open, navigate it and focus
-          if (client.url.includes(self.registration.scope) && 'focus' in client) {
-            console.log('[Service Worker] PWA already open, navigating to:', urlToOpen);
-            client.navigate(urlToOpen);
-            return client.focus();
-          }
-        }
+    clients.matchAll({ 
+      type: 'window', 
+      includeUncontrolled: true 
+    })
+    .then((clientList) => {
+      console.log('[SW] 📋 Found', clientList.length, 'windows');
+      
+      // Check if PWA is already open
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        const clientUrl = new URL(client.url);
+        const targetUrl = new URL(urlToOpen, self.location.origin);
         
-        // If PWA is not open, open new window
-        console.log('[Service Worker] Opening new PWA window:', urlToOpen);
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
+        console.log('[SW] Checking client:', clientUrl.href);
+        
+        // If same origin, navigate existing window
+        if (clientUrl.origin === targetUrl.origin && 'focus' in client) {
+          console.log('[SW] ✅ Navigating existing window to:', urlToOpen);
+          return client.navigate(urlToOpen).then(client => client.focus());
         }
-      })
+      }
+      
+      // No existing window found, open new one
+      if (clients.openWindow) {
+        console.log('[SW] 🪟 Opening new window:', urlToOpen);
+        
+        // Construct full URL
+        const fullUrl = urlToOpen.startsWith('http') 
+          ? urlToOpen 
+          : self.location.origin + urlToOpen;
+        
+        return clients.openWindow(fullUrl);
+      }
+    })
+    .then(windowClient => {
+      console.log('[SW] ✅ Window opened successfully:', windowClient);
+    })
+    .catch(error => {
+      console.error('[SW] ❌ Error opening window:', error);
+    })
   );
 });
 
 
 // ============================================================================
-// NOTIFICATION CLOSE HANDLER (Optional)
+// NOTIFICATION CLOSE HANDLER (Optional - track dismissals)
 // ============================================================================
 
 self.addEventListener('notificationclose', (event) => {
-  console.log('[Service Worker] Notification closed:', event.notification.tag);
+  console.log('[SW] 🚫 Notification closed');
   
-  // Optional: Track notification dismissals
   const data = event.notification.data || {};
   
+  // Track missed calls
   if (data.type === 'call') {
-    console.log('[Service Worker] Call notification dismissed');
-    // Optional: Send API request to notify caller
-    // fetch('/api/video/missed-call', { method: 'POST', body: JSON.stringify({ meetingId: data.meeting_id }) });
+    console.log('[SW] 📞 Call notification dismissed');
+    
+    const meetingId = data.meeting_id || data.meetingId;
+    if (meetingId) {
+      fetch('https://your-backend.onrender.com/api/video/missed-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meetingId })
+      }).catch(err => console.error('[SW] Failed to log missed call:', err));
+    }
   }
 });
 
 
 // ============================================================================
-// PUSH EVENT HANDLER (Alternative to onBackgroundMessage)
+// SERVICE WORKER LIFECYCLE
+// ============================================================================
+
+self.addEventListener('install', (event) => {
+  console.log('[SW] 📦 Installing service worker...');
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  console.log('[SW] ✅ Service worker activated');
+  event.waitUntil(clients.claim());
+});
+
+
+// ============================================================================
+// PUSH EVENT (backup handler)
 // ============================================================================
 
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push received:', event);
+  console.log('[SW] 📬 Push event received');
   
   if (!event.data) {
-    console.log('[Service Worker] No data in push event');
+    console.log('[SW] No data in push');
     return;
   }
   
   try {
     const payload = event.data.json();
-    console.log('[Service Worker] Push payload:', payload);
-    
-    // This is handled by onBackgroundMessage above
-    // But you can add custom logic here if needed
-    
+    console.log('[SW] Push payload:', payload);
   } catch (e) {
-    console.error('[Service Worker] Error parsing push data:', e);
+    console.error('[SW] Error parsing push:', e);
   }
-});
-
-
-// ============================================================================
-// INSTALL & ACTIVATE HANDLERS (Optional - for PWA caching)
-// ============================================================================
-
-self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing...');
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating...');
-  event.waitUntil(clients.claim());
 });
