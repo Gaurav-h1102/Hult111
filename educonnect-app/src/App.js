@@ -1282,6 +1282,217 @@ const CoursesView = () => {
     </div>
   );
 
+  // My Courses View Component
+const MyCoursesView = () => {
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchEnrolledCourses();
+  }, []);
+
+  const fetchEnrolledCourses = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/student/enrollments`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch enrollments');
+      }
+      
+      const data = await response.json();
+      setEnrolledCourses(data.enrollments || []);
+    } catch (error) {
+      console.error('Error fetching enrolled courses:', error);
+      setEnrolledCourses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProgress = async (enrollmentId, newProgress) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/enrollments/${enrollmentId}/progress`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ progress: newProgress })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update progress');
+      }
+
+      // Refresh enrollments
+      fetchEnrolledCourses();
+      alert('✅ Progress updated!');
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      alert('Failed to update progress');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-4 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading your courses...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4">
+      <div className="mb-4">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">My Courses</h2>
+        <p className="text-sm text-gray-600">
+          Track your learning progress and access course materials
+        </p>
+      </div>
+
+      {enrolledCourses.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <BookOpen size={48} className="mx-auto mb-3 text-gray-300" />
+          <p className="text-gray-500 mb-4">You haven't enrolled in any courses yet</p>
+          <button
+            onClick={() => setCurrentView('courses')}
+            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition"
+          >
+            Browse Courses
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {enrolledCourses.map(enrollment => (
+            <div key={enrollment.id} className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="font-bold text-gray-800">{enrollment.course_title}</h3>
+                  <p className="text-sm text-gray-600">by {enrollment.tutor_name}</p>
+                </div>
+                {enrollment.completed && (
+                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded flex items-center gap-1">
+                    <CheckCircle size={12} />
+                    Completed
+                  </span>
+                )}
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mb-3">
+                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                  <span>Progress</span>
+                  <span>{enrollment.progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${enrollment.progress}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Enrollment Info */}
+              <div className="flex gap-2 text-xs text-gray-500 mb-3">
+                <span className="bg-gray-100 px-2 py-1 rounded">
+                  📅 Enrolled: {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                </span>
+                {enrollment.offline_available && (
+                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                    📥 Offline Available
+                  </span>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setSelectedCourse({
+                      id: enrollment.course_id,
+                      title: enrollment.course_title,
+                      tutor_name: enrollment.tutor_name
+                    });
+                    setCurrentView('course-detail');
+                  }}
+                  className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+                >
+                  Continue Learning
+                </button>
+
+                {/* View Assignments Button */}
+                <button
+                  onClick={() => handleOpenAssignments({
+                    id: enrollment.course_id,
+                    title: enrollment.course_title
+                  })}
+                  className="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white py-2 rounded hover:bg-green-700 transition flex items-center justify-center gap-2"
+                >
+                  <FileText size={16} />
+                  View Assignments
+                </button>
+
+                {/* Update Progress */}
+                {!enrollment.completed && (
+                  <details className="bg-gray-50 rounded-lg">
+                    <summary className="p-2 cursor-pointer text-sm text-gray-700 hover:bg-gray-100 rounded">
+                      Update Progress
+                    </summary>
+                    <div className="p-3 space-y-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        defaultValue={enrollment.progress}
+                        className="w-full"
+                        onChange={(e) => {
+                          const progressDisplay = e.target.parentElement.querySelector('.progress-display');
+                          progressDisplay.textContent = `${e.target.value}%`;
+                        }}
+                      />
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 progress-display">
+                          {enrollment.progress}%
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            const input = e.target.parentElement.parentElement.querySelector('input[type="range"]');
+                            handleUpdateProgress(enrollment.id, parseInt(input.value));
+                          }}
+                          className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  </details>
+                )}
+
+                {/* Certificate */}
+                {enrollment.certificate_issued && (
+                  <button
+                    onClick={() => {
+                      window.open(`${API_URL}/api/certificates/CERT-${enrollment.course_id}-${enrollment.student_id}/download`, '_blank');
+                    }}
+                    className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-2 rounded hover:shadow-lg transition flex items-center justify-center gap-2"
+                  >
+                    <Award size={16} />
+                    Download Certificate
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
   // ================ MAIN RENDER ================
   
   return (
@@ -1302,25 +1513,26 @@ const CoursesView = () => {
       />
 
       {/* Main Content Views */}
-      {!isAuthenticated ? (
-        <HomeView />
-      ) : (
-        <>
-          {currentView === 'home' && <HomeView />}
-          {currentView === 'courses' && <CoursesView />}
-          {currentView === 'course-detail' && <CourseDetailView />}
-          {currentView === 'assignments' && (
-            <AssignmentsScreen 
-              course={selectedCourseForAssignments}
-              userType={userType}
-              isAuthenticated={isAuthenticated}
-              API_URL={API_URL}
-              onBack={() => setCurrentView('courses')}
-            />
-          )}
-          {/* Add other views here as needed */}
-        </>
-      )}
+      {/* Main Content Views */}
+{!isAuthenticated ? (
+  <HomeView />
+) : (
+  <>
+    {currentView === 'home' && <HomeView />}
+    {currentView === 'courses' && <CoursesView />}
+    {currentView === 'course-detail' && <CourseDetailView />}
+    {currentView === 'my-courses' && <MyCoursesView />}  {/* ✅ ADD THIS */}
+    {currentView === 'assignments' && (
+      <AssignmentsScreen 
+        course={selectedCourseForAssignments}
+        userType={userType}
+        isAuthenticated={isAuthenticated}
+        API_URL={API_URL}
+        onBack={() => setCurrentView('courses')}
+      />
+    )}
+  </>
+)}
 
       <FCMInitializer 
         onNotification={(payload) => {
