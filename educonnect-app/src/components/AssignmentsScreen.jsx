@@ -140,6 +140,12 @@ const AssignmentsScreen = ({
     return 'text-red-600';
   };
 
+  const handleFileUpload = (e) => {
+  const files = Array.from(e.target.files);
+  setUploadedFiles((prev) => [...prev, ...files]);
+};
+
+
   const handleSubmitAssignment = async () => {
     if (!isAuthenticated) {
       setShowLogin(true);
@@ -200,6 +206,21 @@ const AssignmentsScreen = ({
       setSubmitting(false);
     }
   };
+
+  const filteredAssignments = assignments.filter((assignment) => {
+  const matchesCourse =
+    selectedCourse === 'all' || assignment.courseCode === selectedCourse;
+
+  const matchesStatus =
+    selectedStatus === 'all' || assignment.status === selectedStatus;
+
+  const matchesSearch =
+    assignment.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    assignment.course.toLowerCase().includes(searchQuery.toLowerCase());
+
+  return matchesCourse && matchesStatus && matchesSearch;
+});
+
 
   return (
     <div className="p-4">
