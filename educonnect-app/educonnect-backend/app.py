@@ -3127,52 +3127,6 @@ def grade_assignment(assignment_id):
         return jsonify({'error': 'Failed to grade assignment'}), 500
 
 
-@app.route('/api/tutor/assignments', methods=['GET'])
-@jwt_required()
-def get_tutor_assignments():
-    """Get all assignments created by tutor"""
-    try:
-        user_id_str = get_jwt_identity()
-        user_id = int(user_id_str)
-        user = User.query.get(user_id)
-        
-        if not user or user.user_type != 'tutor':
-            return jsonify({'error': 'Only tutors can access this'}), 403
-        
-        tutor_profile = user.tutor_profile
-        if not tutor_profile:
-            return jsonify({'error': 'Tutor profile not found'}), 404
-        
-        assignments = Assignment.query.filter_by(tutor_id=tutor_profile.id).all()
-        
-        assignments_list = []
-        for assignment in assignments:
-            submissions_count = AssignmentSubmission.query.filter_by(
-                assignment_id=assignment.id
-            ).count()
-            
-            graded_count = AssignmentSubmission.query.filter_by(
-                assignment_id=assignment.id,
-                status='graded'
-            ).count()
-            
-            assignments_list.append({
-                'id': assignment.id,
-                'title': assignment.title,
-                'description': assignment.description,
-                'due_date': assignment.due_date.isoformat(),
-                'max_score': assignment.max_score,
-                'submissions_count': submissions_count,
-                'graded_count': graded_count,
-                'created_at': assignment.created_at.isoformat()
-            })
-        
-        return jsonify({'assignments': assignments_list}), 200
-        
-    except Exception as e:
-        print(f"❌ [GET TUTOR ASSIGNMENTS ERROR] {str(e)}")
-        return jsonify({'error': 'Failed to get assignments'}), 500    
-    
 
 @app.route('/api/match/record-outcome', methods=['POST'],endpoint="record-outcome")
 @jwt_required()
