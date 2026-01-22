@@ -24,6 +24,7 @@ import ProfileCompletionPrompt from './components/ProfileCompletionPrompt';
 import { TutorFeedbackModal, TutorMatchCard } from './components/TutorFeedbackModal';
 import FCMDebugPanel from './components/FCMDebugPanel';
 import FCMInitializer from './components/FCMInitializer';
+import TutorAssignmentsView from './components/TutorAssignmentsView'; // NEW IMPORT
 
 const EduConnectApp = () => {
   const API_URL = process.env.REACT_APP_API_URL || 'https://hult.onrender.com';
@@ -490,14 +491,17 @@ const downloadCourse = async (course) => {
           <div className="border-t border-white/20 bg-white/10 backdrop-blur-md">
             <div className="p-2 space-y-1">
               
-              {/* HOME - Always visible */}
-              <button 
-                onClick={() => { setCurrentView('home'); setMenuOpen(false); }} 
-                className="w-full text-left px-4 py-3 hover:bg-white/20 rounded-lg transition flex items-center gap-3"
-              >
-                <BookOpen size={20} />
-                <span className="font-medium">Home</span>
-              </button>
+              {/* Existing tutor menu items */}
+<button 
+  onClick={() => { 
+    setCurrentView('tutor-assignments'); 
+    setMenuOpen(false); 
+  }} 
+  className="w-full text-left px-4 py-3 hover:bg-white/20 rounded-lg transition flex items-center gap-3"
+>
+  <FileText size={20} />
+  <span className="font-medium">📝 Grade Assignments</span>
+</button>
 
               {/* STUDENT MENU ITEMS */}
               {isAuthenticated && userType === 'student' && (
@@ -1624,8 +1628,7 @@ const MyCoursesView = () => {
         setShowCourseManager={setShowCourseManager}
       />
 
-      {/* Main Content Views */}
-      {/* Main Content Views */}
+{/* Main Content Views */}
 {!isAuthenticated ? (
   <HomeView />
 ) : (
@@ -1633,7 +1636,7 @@ const MyCoursesView = () => {
     {currentView === 'home' && <HomeView />}
     {currentView === 'courses' && <CoursesView />}
     {currentView === 'course-detail' && <CourseDetailView />}
-    {currentView === 'my-courses' && <MyCoursesView />}  {/* ✅ ADD THIS */}
+    {currentView === 'my-courses' && <MyCoursesView />}
     {currentView === 'assignments' && (
       <AssignmentsScreen 
         course={selectedCourseForAssignments}
@@ -1641,6 +1644,13 @@ const MyCoursesView = () => {
         isAuthenticated={isAuthenticated}
         API_URL={API_URL}
         onBack={() => setCurrentView('courses')}
+      />
+    )}
+    {/* 👇 ADD THIS NEW SECTION HERE */}
+    {currentView === 'tutor-assignments' && (
+      <TutorAssignmentsView 
+        API_URL={API_URL}
+        onBack={() => setCurrentView('home')}
       />
     )}
   </>

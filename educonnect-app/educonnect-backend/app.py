@@ -5192,6 +5192,244 @@ def debug_tutor_status():
 
 
 
+
+
+
+
+
+
+
+
+
+
+###############################################################################
+@app.route('/api/tutor/assignments/<int:assignment_id>/submissions', methods=['GET'])
+@jwt_required()
+def get_assignment_submissions(assignment_id):
+    """Get all submissions for an assignment"""
+    try:
+        user_id_str = get_jwt_identity()
+        user_id = int(user_id_str)
+        user = User.query.get(user_id)
+        
+        if not user or user.user_type != 'tutor':
+            return jsonify({'error': 'Only tutors can view submissions'}), 403
+        
+        assignment = Assignment.query.get(assignment_id)
+        if not assignment:
+            return jsonify({'error': 'Assignment not found'}), 404
+        
+        # Check ownership
+        if assignment.tutor.user_id != user_id:
+            return jsonify({'error': 'Not authorized'}), 403
+        
+        submissions = AssignmentSubmission.query.filter_by(
+            assignment_id=assignment_id
+        ).order_by(AssignmentSubmission.submitted_at.desc()).all()
+        
+        submissions_list = []
+        for submission in submissions:
+            student = User.query.get(submission.student_id)
+            
+            submissions_list.append({
+                'id': submission.id,
+                'assignment_id': assignment_id,
+                'student_id': submission.student_id,
+                'student_name': student.full_name if student else 'Unknown',
+                'submitted_at': submission.submitted_at.isoformat(),
+                'status': submission.status,
+                'score': submission.score,
+                'max_score': assignment.max_score,
+                'grade': submission.grade,
+                'feedback': submission.feedback,
+                'comments': submission.comments,
+                'files': json.loads(submission.files) if submission.files else [],
+                'late_submission': submission.late_submission
+            })
+        
+        return jsonify({'submissions': submissions_list}), 200
+        
+    except Exception as e:
+        print(f"❌ [SUBMISSIONS ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to get submissions'}), 500
+    
+###########################################################################################
+
+@app.route('/api/create-test-assignment', methods=['POST'])
+@jwt_required()
+def create_test_assignment():
+    """Create a test assignment for grading testing"""
+    try:
+        user_id_str = get_jwt_identity()
+        user_id = int(user_id_str)
+        user = User.query.get(user_id)
+        
+        if not user or user.user_type != 'tutor':
+            return jsonify({'error': 'Only tutors can create assignments'}), 403
+        
+        # Get the tutor profile
+        tutor = TutorProfile.query.filter_by(user_id=user_id).first()
+        if not tutor:
+            return jsonify({'error': 'Tutor profile not found'}), 404
+        
+        # Get first available course
+        course = Course.query.filter_by(tutor_id=tutor.id).first()
+        if not course:
+            # If no course exists, create a test course
+            course = Course(
+                tutor_id=tutor.id,
+                name="Test Course - Python Programming",
+                description="Test course for assignment grading",
+                category="Programming",
+                level="Beginner"
+            )
+            db.session.add(course)
+            db.session.commit()
+        
+        # Create test assignment
+        assignment = Assignment(
+            tutor_id=tutor.id,
+            course_id=course.id,
+            title="Test Assignment: Essay on Python Programming",
+            description="Write a 500-word essay about the benefits of Python programming. Include examples of real-world applications.",
+            due_date=datetime.now() + timedelta(days=7),
+            max_score=100
+        )
+        
+        db.session.add(assignment)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Test assignment created successfully',
+            'assignment': {
+                'id': assignment.id,
+                'title': assignment.title,
+                'course_name': course.name
+            }
+        }), 201
+        
+    except Exception as e:
+        print(f"❌ [TEST ASSIGNMENT ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create test assignment'}), 500
+
+
+
+@app.route('/api/tutor/assignments', methods=['GET'])
+@jwt_required()
+def get_tutor_assignments():
+    """Get all assignments created by the tutor"""
+    try:
+        user_id_str = get_jwt_identity()
+        user_id = int(user_id_str)
+        user = User.query.get(user_id)
+        
+        if not user or user.user_type != 'tutor':
+            return jsonify({'error': 'Only tutors can view assignments'}), 403
+        
+        tutor = TutorProfile.query.filter_by(user_id=user_id).first()
+        if not tutor:
+            return jsonify({'error': 'Tutor profile not found'}), 404
+        
+        assignments = Assignment.query.filter_by(tutor_id=tutor.id).all()
+        
+        assignments_list = []
+        for assignment in assignments:
+            # Count submissions
+            submissions_count = AssignmentSubmission.query.filter_by(
+                assignment_id=assignment.id
+            ).count()
+            
+            # Count graded submissions
+            graded_count = AssignmentSubmission.query.filter_by(
+                assignment_id=assignment.id,
+                status='graded'
+            ).count()
+            
+            assignments_list.append({
+                'id': assignment.id,
+                'title': assignment.title,
+                'description': assignment.description,
+                'due_date': assignment.due_date.isoformat(),
+                'max_score': assignment.max_score,
+                'created_at': assignment.created_at.isoformat(),
+                'submissions_count': submissions_count,
+                'graded_count': graded_count,
+                'course_name': assignment.course.name if assignment.course else 'No Course'
+            })
+        
+        return jsonify({'assignments': assignments_list}), 200
+        
+    except Exception as e:
+        print(f"❌ [TUTOR ASSIGNMENTS ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to get assignments'}), 500
+
+
+
+
+
+
+
+@app.route('/api/tutor/assignments/<int:assignment_id>/grade', methods=['POST'])
+@jwt_required()
+def grade_assignment(assignment_id):
+    """Grade a student submission"""
+    try:
+        user_id_str = get_jwt_identity()
+        user_id = int(user_id_str)
+        user = User.query.get(user_id)
+        
+        if not user or user.user_type != 'tutor':
+            return jsonify({'error': 'Only tutors can grade assignments'}), 403
+        
+        data = request.get_json()
+        submission_id = data.get('submission_id')
+        score = data.get('score')
+        grade = data.get('grade')
+        feedback = data.get('feedback', '')
+        
+        if not all([submission_id, score, grade]):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        submission = AssignmentSubmission.query.get(submission_id)
+        if not submission:
+            return jsonify({'error': 'Submission not found'}), 404
+        
+        # Verify assignment belongs to tutor
+        assignment = Assignment.query.get(submission.assignment_id)
+        if assignment.tutor.user_id != user_id:
+            return jsonify({'error': 'Not authorized to grade this assignment'}), 403
+        
+        # Update submission
+        submission.score = score
+        submission.grade = grade
+        submission.feedback = feedback
+        submission.status = 'graded'
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Assignment graded successfully',
+            'submission': {
+                'id': submission.id,
+                'score': submission.score,
+                'grade': submission.grade,
+                'feedback': submission.feedback,
+                'status': submission.status
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ [GRADING ERROR] {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to grade assignment'}), 500
+
 # ============================================================================
 # INITIALIZE DATABASE
 # ============================================================================
