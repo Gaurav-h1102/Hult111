@@ -5272,7 +5272,6 @@ def create_test_assignment():
         return jsonify({'error': 'Failed to create test assignment'}), 500
 
 
-
 @app.route('/api/tutor/assignments', methods=['GET'])
 @jwt_required()
 def get_tutor_assignments():
@@ -5313,7 +5312,7 @@ def get_tutor_assignments():
                 'created_at': assignment.created_at.isoformat(),
                 'submissions_count': submissions_count,
                 'graded_count': graded_count,
-                'course_name': assignment.course.name if assignment.course else 'No Course'
+                'course_name': assignment.course.title if assignment.course else 'No Course'  # ✅ FIXED: Use 'title' instead of 'name'
             })
         
         return jsonify({'assignments': assignments_list}), 200
@@ -5323,7 +5322,6 @@ def get_tutor_assignments():
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Failed to get assignments'}), 500
-
 
 
 
