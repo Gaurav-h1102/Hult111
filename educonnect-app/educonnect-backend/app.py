@@ -5327,63 +5327,6 @@ def get_tutor_assignments():
 
 
 
-
-
-
-@app.route('/api/tutor/assignments/<int:assignment_id>/grade', methods=['POST'])
-@jwt_required()
-def grade_assignment(assignment_id):
-    """Grade a student submission"""
-    try:
-        user_id_str = get_jwt_identity()
-        user_id = int(user_id_str)
-        user = User.query.get(user_id)
-        
-        if not user or user.user_type != 'tutor':
-            return jsonify({'error': 'Only tutors can grade assignments'}), 403
-        
-        data = request.get_json()
-        submission_id = data.get('submission_id')
-        score = data.get('score')
-        grade = data.get('grade')
-        feedback = data.get('feedback', '')
-        
-        if not all([submission_id, score, grade]):
-            return jsonify({'error': 'Missing required fields'}), 400
-        
-        submission = AssignmentSubmission.query.get(submission_id)
-        if not submission:
-            return jsonify({'error': 'Submission not found'}), 404
-        
-        # Verify assignment belongs to tutor
-        assignment = Assignment.query.get(submission.assignment_id)
-        if assignment.tutor.user_id != user_id:
-            return jsonify({'error': 'Not authorized to grade this assignment'}), 403
-        
-        # Update submission
-        submission.score = score
-        submission.grade = grade
-        submission.feedback = feedback
-        submission.status = 'graded'
-        
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Assignment graded successfully',
-            'submission': {
-                'id': submission.id,
-                'score': submission.score,
-                'grade': submission.grade,
-                'feedback': submission.feedback,
-                'status': submission.status
-            }
-        }), 200
-        
-    except Exception as e:
-        print(f"❌ [GRADING ERROR] {str(e)}")
-        db.session.rollback()
-        return jsonify({'error': 'Failed to grade assignment'}), 500
-
 # ============================================================================
 # INITIALIZE DATABASE
 # ============================================================================
