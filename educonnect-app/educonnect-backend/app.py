@@ -1656,6 +1656,7 @@ def update_student_profile_enhanced():
     print("✅ [PROFILE UPDATE] Profile updated successfully")
     
     return jsonify({'message': 'Profile updated successfully'}), 200
+
 @app.route('/api/auth/register', methods=['POST', 'OPTIONS'])
 def register_with_verification():
     """Fixed registration endpoint"""
@@ -1698,12 +1699,12 @@ def register_with_verification():
             password_hash=hashed_password,
             full_name=data['name'],
             user_type=data.get('role', 'student'),
-            email_verified=True,  # Auto-verify for now (change to False when email works)
+            email_verified=True,  # Auto-verify for now
             failed_login_attempts=0
         )
         
         db.session.add(new_user)
-        db.session.flush()
+        db.session.flush()  # Get the user ID before committing
         
         print(f"[REGISTER] User created with ID: {new_user.id}")
         
@@ -1726,6 +1727,7 @@ def register_with_verification():
             )
             db.session.add(student_profile)
         
+        # ✅ COMMIT BEFORE trying to send email
         db.session.commit()
         
         print(f"✅ [REGISTER] User {new_user.id} registered successfully")
@@ -1733,13 +1735,15 @@ def register_with_verification():
         # Try to send verification email (but don't fail if it doesn't work)
         email_sent = False
         try:
-            token = generate_verification_token(new_user.email)
-            verification_url = f"{request.host_url}verify-email?token={token}"
-            email_sent = send_verification_email(new_user.email, verification_url)
-            print(f"[REGISTER] Email sent: {email_sent}")
+            token = serializer.dumps(new_user.email, salt=app.config['SECURITY_PASSWORD_SALT'])
+            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+            verification_url = f"{frontend_url}/verify-email?token={token}"
+            
+            # Try to send email (you'd need to implement send_verification_email)
+            # email_sent = send_verification_email(new_user.email, verification_url)
+            print(f"[REGISTER] Verification URL: {verification_url}")
         except Exception as email_error:
             print(f"⚠️ [REGISTER] Email sending failed (non-critical): {email_error}")
-            # Don't fail registration if email fails
         
         print(f"{'='*70}\n")
         
@@ -1756,7 +1760,12 @@ def register_with_verification():
         import traceback
         print(traceback.format_exc())
         print(f"{'='*70}\n")
-        return jsonify({'error': 'Registration failed', 'details': str(e)})
+        return jsonify({'error': 'Registration failed', 'details': str(e)}), 500
+    
+    
+def generate_verification_token(email):
+    """Generate email verification token"""
+    return serializer.dumps(email, salt=app.config['SECURITY_PASSWORD_SALT'])
 """
  @app.route('/api/auth/verify-email', methods=['GET'])
 def verify_email():
