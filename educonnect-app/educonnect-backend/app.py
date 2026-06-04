@@ -1118,30 +1118,7 @@ def send_password_reset_email(user_email, reset_url):
                 </div>
             </body>
         </html>
-        """
-
-        msg.send()
-        print(f"✅ [EMAIL] Password reset email sent to {user_email}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ [EMAIL ERROR] Failed to send reset email: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-def check_account_locked(user):
-    """Check if account is locked due to failed login attempts"""
-    if user.account_locked_until:
-        if datetime.utcnow() < user.account_locked_until:
-            remaining = (user.account_locked_until - datetime.utcnow()).seconds // 60
-            return True, remaining
-        else:
-            # Unlock account
-            user.account_locked_until = None
-            user.failed_login_attempts = 0
-            db.session.commit()
-    return False, 0
-
+    
 @socketio.on('connect')
 def handle_connect(auth):
     """Handle client connection"""
@@ -3618,7 +3595,10 @@ def save_student_survey():
             data.get('motivation_level') or 
             7
         )
-        
+        if 'selected_goals' in data:
+            profile.selected_goals = json.dumps(data['selected_goals'])
+        if 'tutor_gender_preference' in data:
+            profile.tutor_gender_preference = data['tutor_gender_preference']
         profile.survey_completed = True
         
         print("[SURVEY] About to commit to database...")
