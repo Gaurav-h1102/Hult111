@@ -303,7 +303,8 @@ class StudentProfile(db.Model):
     available_time = db.Column(db.String(50))
     preferred_languages = db.Column(db.Text)
     survey_completed = db.Column(db.Boolean, default=False)
-    
+    selected_goals = db.Column(db.Text)          # JSON array
+    tutor_gender_preference = db.Column(db.String(20))
     math_score = db.Column(db.Integer)
     science_score = db.Column(db.Integer)
     language_score = db.Column(db.Integer)
