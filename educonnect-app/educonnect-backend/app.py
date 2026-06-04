@@ -282,6 +282,7 @@ class User(db.Model):
     phone = db.Column(db.String(20))
     location = db.Column(db.String(100))
     date_of_birth = db.Column(db.Date)
+    gender = db.Column(db.String(20))
 
 class FCMToken(db.Model):
     """Store FCM tokens for users"""
@@ -2530,7 +2531,8 @@ def complete_tutor_onboarding():
         if 'availability' in data:
             profile.availability = json.dumps(data['availability'])
             print(f"[ONBOARDING] Updated availability")
-        
+        if 'gender' in data:
+            user.gender = data['gender']
         # ✅ CRITICAL: Set verified to True
         profile.verified = True
         print(f"[ONBOARDING] Set verified = True")
@@ -2663,6 +2665,7 @@ def get_tutor_matches():
                 'availability': json.loads(tutor.availability) if tutor.availability else {},
                 'rating': tutor.rating or 4.0,
                 'total_sessions': tutor.total_sessions or 0,
+                'gender': getattr(tutor.user, 'gender', ''),
                 'teaching_style': getattr(tutor, 'teaching_style', 'adaptive')
             })
         
@@ -4402,6 +4405,7 @@ def get_tutor_profile_enhanced():
             'teaching_style': getattr(profile, 'teaching_style', 'adaptive'),
             'years_experience': getattr(profile, 'years_experience', ''),
             'education': getattr(profile, 'education', ''),
+            'gender': getattr(user, 'gender', ''),
             'certifications': getattr(profile, 'certifications', ''),
             'specializations': getattr(profile, 'specializations', ''),
             'teaching_philosophy': getattr(profile, 'teaching_philosophy', ''),
@@ -4455,7 +4459,8 @@ def update_tutor_profile_enhanced():
     if 'availability' in data:
         profile.availability = json.dumps(data['availability'])
         print(f"  📅 Updated availability: {sum(data['availability'].values())} slots")
-    
+    if 'gender' in data:
+        user.gender = data['gender']
     # Additional fields - using setattr for safety
     additional_fields = [
         'teaching_style', 'years_experience', 'education', 'certifications',
